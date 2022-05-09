@@ -2,6 +2,7 @@ import imutils
 import cv2
 import numpy as np
 import tkinter as tk
+from queue import Queue
 
 width = 600
 
@@ -12,15 +13,15 @@ label1 = tk.Label(root, text='Video source:')
 canvas1.create_window(250, 60, window=label1)
 entry1 = tk.Entry(root, width=50)
 canvas1.create_window(250, 100, window=entry1)
-label2 = tk.Label(root, text='Sensitiveness:')
+label2 = tk.Label(root, text='Sensitiveness threshold:')
 canvas1.create_window(250, 140, window=label2)
 entry2 = tk.Entry(root, width=50)
 canvas1.create_window(250, 180, window=entry2)
-label3 = tk.Label(root, text='Mask upper left corner:')
+label3 = tk.Label(root, text='Mask upper left corner: (format: x y)')
 canvas1.create_window(250, 220, window=label3)
 entry3 = tk.Entry(root, width=50)
 canvas1.create_window(250, 260, window=entry3)
-label4 = tk.Label(root, text='Mask lower right corner:')
+label4 = tk.Label(root, text='Mask lower right corner: (format: x y)')
 canvas1.create_window(250, 300, window=label4)
 entry4 = tk.Entry(root, width=50)
 canvas1.create_window(250, 340, window=entry4)
@@ -28,6 +29,7 @@ debug = tk.BooleanVar()
 check1 = tk.Checkbutton(root, text="Debug", variable=debug)
 canvas1.create_window(250, 380, window=check1)
 
+last_frames = Queue()
 def run():
 
     source = entry1.get()
@@ -36,7 +38,7 @@ def run():
     mask_lower_right = tuple(map(int, entry4.get().split()))
 
     vs = cv2.VideoCapture(source)
-    first_frame = None
+    last_frame = None
     while True:
         ret, frame = vs.read()
 
@@ -52,15 +54,23 @@ def run():
 
         gray = cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (21, 21), 0)
-        if first_frame is None:
-            first_frame = gray
+        if last_frame is None:
+            last_frame = gray
             continue
-        frameDelta = cv2.absdiff(first_frame, gray)
+        last_frames.put(gray)
+        if last_frames.qsize() == 10:
+            frameDelta = cv2.absdiff(last_frames.get(), gray)
+        else:
+            frameDelta = cv2.absdiff(last_frame, gray)
         thresh = cv2.threshold(frameDelta, sensitiveness, 255, cv2.THRESH_BINARY)[1]
         thresh = cv2.dilate(thresh, None, iterations=2)
         cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
+
+
         for c in cnts:
+            if cv2.contourArea(c) < 50:
+                continue
             (x, y, w, h) = cv2.boundingRect(c)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
@@ -74,6 +84,8 @@ def run():
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
             break
+
+        last_frame = gray
     vs.release()
     cv2.destroyAllWindows()
 
