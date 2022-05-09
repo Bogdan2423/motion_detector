@@ -5,6 +5,7 @@ import tkinter as tk
 from queue import Queue
 
 width = 600
+frames_count = 10
 
 root = tk.Tk()
 canvas1 = tk.Canvas(root, width=500, height=450)
@@ -17,6 +18,9 @@ label2 = tk.Label(root, text='Sensitiveness threshold:')
 canvas1.create_window(250, 140, window=label2)
 entry2 = tk.Entry(root, width=50)
 canvas1.create_window(250, 180, window=entry2)
+mask_bool = tk.BooleanVar()
+check2 = tk.Checkbutton(root, text="Mask", variable=mask_bool)
+canvas1.create_window(250, 400, window=check2)
 label3 = tk.Label(root, text='Mask upper left corner: (format: x y)')
 canvas1.create_window(250, 220, window=label3)
 entry3 = tk.Entry(root, width=50)
@@ -31,11 +35,11 @@ canvas1.create_window(250, 380, window=check1)
 
 last_frames = Queue()
 def run():
-
     source = entry1.get()
     sensitiveness = int(entry2.get())
-    mask_upper_left = tuple(map(int, entry3.get().split()))
-    mask_lower_right = tuple(map(int, entry4.get().split()))
+    if mask_bool.get():
+        mask_upper_left = tuple(map(int, entry3.get().split()))
+        mask_lower_right = tuple(map(int, entry4.get().split()))
 
     vs = cv2.VideoCapture(source)
     last_frame = None
@@ -45,9 +49,12 @@ def run():
         if ret == False:
             break
 
-        mask = np.zeros(frame.shape[:2], dtype="uint8")
-        cv2.rectangle(mask, mask_upper_left, mask_lower_right, (255, 255, 255), -1)
-        masked = cv2.bitwise_and(frame, frame, mask=mask)
+        if mask_bool.get():
+            mask = np.zeros(frame.shape[:2], dtype="uint8")
+            cv2.rectangle(mask, mask_upper_left, mask_lower_right, (255, 255, 255), -1)
+            masked = cv2.bitwise_and(frame, frame, mask=mask)
+        else:
+            masked = frame
 
         frame = imutils.resize(frame, width=width)
         masked = imutils.resize(masked, width=width)
@@ -58,7 +65,7 @@ def run():
             last_frame = gray
             continue
         last_frames.put(gray)
-        if last_frames.qsize() == 10:
+        if last_frames.qsize() == frames_count:
             frameDelta = cv2.absdiff(last_frames.get(), gray)
         else:
             frameDelta = cv2.absdiff(last_frame, gray)
@@ -76,7 +83,8 @@ def run():
 
         cv2.imshow("Motion Detector", frame)
         if debug.get():
-            cv2.imshow("Mask", masked)
+            if mask_bool.get():
+                cv2.imshow("Mask", masked)
             cv2.imshow("Grayscale", gray)
             cv2.imshow("Frame Delta", frameDelta)
             cv2.imshow("Thresh", thresh)
@@ -91,7 +99,7 @@ def run():
 
 
 button1 = tk.Button(text='Start', command=run)
-canvas1.create_window(250, 420, window=button1)
+canvas1.create_window(250, 430, window=button1)
 
 root.mainloop()
 
