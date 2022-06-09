@@ -21,11 +21,11 @@ canvas1.create_window(250, 180, window=entry2)
 mask_bool = tk.BooleanVar()
 check2 = tk.Checkbutton(root, text="Mask", variable=mask_bool)
 canvas1.create_window(250, 400, window=check2)
-label3 = tk.Label(root, text='Mask upper left corners: (format: x1 y1 x2 y2 ...)')
+label3 = tk.Label(root, text='Mask upper left corners: (format: y1 x1 y2 x2 ...)')
 canvas1.create_window(250, 220, window=label3)
 entry3 = tk.Entry(root, width=50)
 canvas1.create_window(250, 260, window=entry3)
-label4 = tk.Label(root, text='Mask lower right corners: (format: x1 y1 x2 y2 ...)')
+label4 = tk.Label(root, text='Mask lower right corners: (format: y1 x1 y2 x2 ...)')
 canvas1.create_window(250, 300, window=label4)
 entry4 = tk.Entry(root, width=50)
 canvas1.create_window(250, 340, window=entry4)
@@ -43,13 +43,15 @@ def run():
         upper_left = entry3.get().split()
         lower_right = entry4.get().split()
         for i in range(0, len(upper_left), 2):
-            mask_upper_left.append(tuple(map(int, upper_left[i:i+2])))
-            mask_lower_right.append(tuple(map(int, lower_right[i:i+2])))
+            mask_upper_left.append(tuple(map(float, upper_left[i:i+2])))
+            mask_lower_right.append(tuple(map(float, lower_right[i:i+2])))
 
     vs = cv2.VideoCapture(source)
     last_frame = None
     while True:
         ret, frame = vs.read()
+        x_size = frame.shape[:2][1]
+        y_size = frame.shape[:2][0]
 
         if ret == False:
             break
@@ -57,7 +59,8 @@ def run():
         if mask_bool.get():
             mask = np.zeros(frame.shape[:2], dtype="uint8")
             for i in range(len(mask_upper_left)):
-                cv2.rectangle(mask, mask_upper_left[i], mask_lower_right[i], (255, 255, 255), -1)
+                cv2.rectangle(mask, (int(mask_upper_left[i][1]*x_size), int(mask_upper_left[i][0]*y_size)),
+                              (int(mask_lower_right[i][1]*x_size),int(mask_lower_right[i][0]*y_size)), (255, 255, 255), -1)
             masked = cv2.bitwise_and(frame, frame, mask=mask)
         else:
             masked = frame
